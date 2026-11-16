@@ -1,1 +1,43 @@
+version: 0.2
 
+env:
+  variables:
+    TF_VERSION: "1.9.5"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Instalando Terraform ${TF_VERSION} en entorno CodeBuild..."
+      - curl -s -qL -o terraform.zip https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+      - unzip -o terraform.zip -d /usr/local/bin/
+      - terraform --version
+
+  pre_build:
+    commands:
+      - echo "Fase Pre-Build: Ejecutando pruebas automatizadas de IaC y Seguridad (RT-04, ES-02, ES-03)..."
+      - chmod +x tests/test_infra.sh
+      - ./tests/test_infra.sh
+
+  build:
+    commands:
+      - echo "Fase Build: Generando plan de ejecucion de infraestructura..."
+      - cd infra
+      - terraform plan -input=false -out=tfplan
+      - cd ..
+
+  post_build:
+    commands:
+      - echo "Fase Post-Build: Validando endpoint desplegado si APP_URL esta configurada (RF-01)..."
+      - |
+        if [ -n "$APP_URL" ]; then
+          python3 tests/test_endpoint.py
+        else
+          echo "APP_URL no definida en este stage; validacion estatica y plan completados."
+        fi
+
+artifacts:
+  files:
+    - infra/tfplan
+    - tests/*
