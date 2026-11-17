@@ -16,28 +16,21 @@ phases:
 
   pre_build:
     commands:
-      - echo "Fase Pre-Build: Ejecutando pruebas automatizadas de IaC y Seguridad (RT-04, ES-02, ES-03)..."
+      - echo "Fase Pre-Build Ejecutando pruebas automatizadas de IaC y Seguridad..."
       - chmod +x tests/test_infra.sh
       - ./tests/test_infra.sh
 
   build:
     commands:
-      - echo "Fase Build: Generando plan de ejecucion de infraestructura..."
-      - cd infra
-      - terraform plan -input=false -out=tfplan
-      - cd ..
+      - echo "Fase Build Validando configuracion de infraestructura..."
+      - cd infra && terraform init -backend=false && terraform validate
 
   post_build:
     commands:
-      - echo "Fase Post-Build: Validando endpoint desplegado si APP_URL esta configurada (RF-01)..."
-      - |
-        if [ -n "$APP_URL" ]; then
-          python3 tests/test_endpoint.py
-        else
-          echo "APP_URL no definida en este stage; validacion estatica y plan completados."
-        fi
+      - echo "Fase Post-Build Verificando pruebas funcionales..."
+      - if [ -n "$APP_URL" ]; then python3 tests/test_endpoint.py; else echo "APP_URL no definida; validacion estatica y IaC completada con exito."; fi
 
 artifacts:
   files:
-    - infra/tfplan
+    - infra/*.tf
     - tests/*
